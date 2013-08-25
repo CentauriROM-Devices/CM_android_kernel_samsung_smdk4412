@@ -211,11 +211,11 @@ static void do_dbs_timer(struct work_struct *work);
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                                 unsigned int event);
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_PEGASUSQ
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ALICORNQ
 static
 #endif
-struct cpufreq_governor cpufreq_gov_pegasusq = {
-        .name                   = "pegasusq",
+struct cpufreq_governor cpufreq_gov_alicornq = {
+        .name                   = "alicornq",
         .governor               = cpufreq_governor_dbs,
         .owner                  = THIS_MODULE,
 };
@@ -260,7 +260,7 @@ static struct dbs_tuners {
         unsigned int ignore_nice;
         unsigned int sampling_down_factor;
         unsigned int io_is_busy;
-        /* pegasusq tuners */
+        /* alicornq tuners */
         unsigned int freq_step;
         unsigned int cpu_up_rate;
         unsigned int cpu_down_rate;
@@ -326,7 +326,7 @@ static void apply_hotplug_lock(void)
         queue_work_on(dbs_info->cpu, dvfs_workqueue, work);
 }
 
-int cpufreq_pegasusq_cpu_lock(int num_core)
+int cpufreq_alicornq_cpu_lock(int num_core)
 {
         int prev_lock;
 
@@ -347,7 +347,7 @@ int cpufreq_pegasusq_cpu_lock(int num_core)
         return 0;
 }
 
-int cpufreq_pegasusq_cpu_unlock(int num_core)
+int cpufreq_alicornq_cpu_unlock(int num_core)
 {
         int prev_lock = atomic_read(&g_hotplug_lock);
 
@@ -719,14 +719,14 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
         prev_lock = atomic_read(&dbs_tuners_ins.hotplug_lock);
 
         if (prev_lock)
-                cpufreq_pegasusq_cpu_unlock(prev_lock);
+                cpufreq_alicornq_cpu_unlock(prev_lock);
 
         if (input == 0) {
                 atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
                 return count;
         }
 
-        ret = cpufreq_pegasusq_cpu_lock(input);
+        ret = cpufreq_alicornq_cpu_lock(input);
         if (ret) {
                 printk(KERN_ERR "[HOTPLUG] already locked with smaller value %d < %d\n",
                         atomic_read(&g_hotplug_lock), input);
@@ -836,7 +836,7 @@ static struct attribute *dbs_attributes[] = {
 
 static struct attribute_group dbs_attr_group = {
         .attrs = dbs_attributes,
-        .name = "pegasusq",
+        .name = "alicornq",
 };
 
 /************************** sysfs end ************************/
@@ -1270,7 +1270,7 @@ static struct notifier_block reboot_notifier = {
 static struct early_suspend early_suspend;
 unsigned int prev_freq_step;
 unsigned int prev_sampling_rate;
-static void cpufreq_pegasusq_early_suspend(struct early_suspend *h)
+static void cpufreq_alicornq_early_suspend(struct early_suspend *h)
 {
         dbs_tuners_ins.early_suspend =
                 atomic_read(&g_hotplug_lock);
@@ -1282,7 +1282,7 @@ static void cpufreq_pegasusq_early_suspend(struct early_suspend *h)
         apply_hotplug_lock();
         stop_rq_work();
 }
-static void cpufreq_pegasusq_late_resume(struct early_suspend *h)
+static void cpufreq_alicornq_late_resume(struct early_suspend *h)
 {
         atomic_set(&g_hotplug_lock, dbs_tuners_ins.early_suspend);
         dbs_tuners_ins.early_suspend = -1;
@@ -1414,21 +1414,21 @@ static int __init cpufreq_gov_dbs_init(void)
                 goto err_hist;
         }
 
-        dvfs_workqueue = create_workqueue("kpegasusq");
+        dvfs_workqueue = create_workqueue("kalicornq");
         if (!dvfs_workqueue) {
                 pr_err("%s cannot create workqueue\n", __func__);
                 ret = -ENOMEM;
                 goto err_queue;
         }
 
-        ret = cpufreq_register_governor(&cpufreq_gov_pegasusq);
+        ret = cpufreq_register_governor(&cpufreq_gov_alicornq);
         if (ret)
                 goto err_reg;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
         early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-        early_suspend.suspend = cpufreq_pegasusq_early_suspend;
-        early_suspend.resume = cpufreq_pegasusq_late_resume;
+        early_suspend.suspend = cpufreq_alicornq_early_suspend;
+        early_suspend.resume = cpufreq_alicornq_late_resume;
 #endif
 
         return ret;
@@ -1444,7 +1444,7 @@ err_hist:
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-        cpufreq_unregister_governor(&cpufreq_gov_pegasusq);
+        cpufreq_unregister_governor(&cpufreq_gov_alicornq);
         destroy_workqueue(dvfs_workqueue);
         kfree(hotplug_history);
         kfree(rq_data);
@@ -1454,7 +1454,7 @@ MODULE_AUTHOR("ByungChang Cha <bc.cha@samsung.com>");
 MODULE_DESCRIPTION("'cpufreq_pegasusq' - A dynamic cpufreq/cpuhotplug governor");
 MODULE_LICENSE("GPL");
 
-#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_PEGASUSQ
+#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_ALICORNQ
 fs_initcall(cpufreq_gov_dbs_init);
 #else
 module_init(cpufreq_gov_dbs_init);
