@@ -1,20 +1,16 @@
 /*
- *  drivers/cpufreq/cpufreq_pegasusq.c
+ *  drivers/cpufreq/cpufreq_alicornq.c
  *
- *  Copyright (C)  2011 Samsung Electronics co. ltd
- *    ByungChang Cha <bc.cha@samsung.com>
+ *  Based on pegasusq governor
  *
- *  Based on ondemand governor
- *  Copyright (C)  2001 Russell King
- *            (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
- *                      Jun Nakajima <jun.nakajima@intel.com>
+ * Just a set of pegasusq tweaks by hakcenter
+ * Forked to alicornq by blasphemy
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-/*
- *  drivers/cpufreq/cpufreq_pegasusq.c
+ /*  drivers/cpufreq/cpufreq_pegasusq.c
  *
  *  Copyright (C)  2011 Samsung Electronics co. ltd
  *    ByungChang Cha <bc.cha@samsung.com>
@@ -244,7 +240,7 @@ struct cpu_dbs_info_s {
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
-struct workqueue_struct *dvfs_workqueue;
+struct workqueue_struct *ali_dvfs_workqueue;
 
 static unsigned int dbs_enable;        /* number of CPUs using this policy */
 
@@ -323,7 +319,7 @@ static void apply_hotplug_lock(void)
         pr_debug("%s online %d possible %d lock %d flag %d %d\n",
                  __func__, online, possible, lock, flag, (int)abs(flag));
 
-        queue_work_on(dbs_info->cpu, dvfs_workqueue, work);
+        queue_work_on(dbs_info->cpu, ali_dvfs_workqueue, work);
 }
 
 int cpufreq_alicornq_cpu_lock(int num_core)
@@ -377,7 +373,7 @@ struct cpu_usage_history {
         unsigned int num_hist;
 };
 
-struct cpu_usage_history *hotplug_history;
+struct cpu_usage_history *ali_hotplug_history;
 
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
                                                   cputime64_t *wall)
@@ -914,7 +910,7 @@ static void debug_hotplug_check(int which, int rq_avg, int freq,
 
 static int check_up(void)
 {
-        int num_hist = hotplug_history->num_hist;
+        int num_hist = ali_hotplug_history->num_hist;
         struct cpu_usage *usage;
         int freq, rq_avg;
         int i;
@@ -944,7 +940,7 @@ static int check_up(void)
     if(num_hist == 0) num_hist = MAX_HOTPLUG_RATE;
 
         for (i = num_hist - 1; i >= num_hist - up_rate; --i) {
-                usage = &hotplug_history->usage[i];
+                usage = &ali_hotplug_history->usage[i];
 
                 freq = usage->freq;
                 rq_avg =  usage->rq_avg;
@@ -963,7 +959,7 @@ static int check_up(void)
         if (avg_freq >= up_freq && avg_rq > up_rq) {
                 printk(KERN_ERR "[HOTPLUG IN] %s %d>=%d && %d>%d\n",
                         __func__, min_freq, up_freq, min_rq_avg, up_rq);
-                //hotplug_history->num_hist = 0;
+                //ali_hotplug_history->num_hist = 0;
                 return 1;
         }
         return 0;
@@ -971,7 +967,7 @@ static int check_up(void)
 
 static int check_down(void)
 {
-        int num_hist = hotplug_history->num_hist;
+        int num_hist = ali_hotplug_history->num_hist;
         struct cpu_usage *usage;
         int freq, rq_avg;
         int i;
@@ -1002,7 +998,7 @@ static int check_down(void)
     if(num_hist == 0) num_hist = MAX_HOTPLUG_RATE; //make it circular -gm
 
         for (i = num_hist - 1; i >= num_hist - down_rate; --i) {
-                usage = &hotplug_history->usage[i];
+                usage = &ali_hotplug_history->usage[i];
 
                 freq = usage->freq;
                 rq_avg =  usage->rq_avg;
@@ -1021,7 +1017,7 @@ static int check_down(void)
         if (avg_freq <= down_freq && avg_rq <= down_rq) {
                 printk(KERN_ERR "[HOTPLUG OUT] %s %d<=%d && %d<%d\n",
                         __func__, max_freq, down_freq, max_rq_avg, down_rq);
-                //hotplug_history->num_hist = 0;
+                //ali_hotplug_history->num_hist = 0;
                 return 1;
         }
 
@@ -1034,15 +1030,15 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
         struct cpufreq_policy *policy;
         unsigned int j;
-        int num_hist = hotplug_history->num_hist;
+        int num_hist = ali_hotplug_history->num_hist;
         int max_hotplug_rate = MAX_HOTPLUG_RATE;
         int up_threshold = dbs_tuners_ins.up_threshold;
 
         policy = this_dbs_info->cur_policy;
 
-        hotplug_history->usage[num_hist].freq = policy->cur;
-        hotplug_history->usage[num_hist].rq_avg = get_nr_run_avg();
-        ++hotplug_history->num_hist;
+        ali_hotplug_history->usage[num_hist].freq = policy->cur;
+        ali_hotplug_history->usage[num_hist].rq_avg = get_nr_run_avg();
+        ++ali_hotplug_history->num_hist;
 
         /* Get Absolute Load - in terms of freq */
         max_load_freq = 0;
@@ -1099,7 +1095,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
                         continue;
 
                 load = 100 * (wall_time - idle_time) / wall_time;
-                hotplug_history->usage[num_hist].load[j] = load;
+                ali_hotplug_history->usage[num_hist].load[j] = load;
 
                 freq_avg = __cpufreq_driver_getavg(policy, j);
                 if (freq_avg <= 0)
@@ -1112,14 +1108,14 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
         /* Check for CPU hotplug */
         if (check_up()) {
-                queue_work_on(this_dbs_info->cpu, dvfs_workqueue,
+                queue_work_on(this_dbs_info->cpu, ali_dvfs_workqueue,
                               &this_dbs_info->up_work);
         } else if (check_down()) {
-                queue_work_on(this_dbs_info->cpu, dvfs_workqueue,
+                queue_work_on(this_dbs_info->cpu, ali_dvfs_workqueue,
                               &this_dbs_info->down_work);
         }
-        if (hotplug_history->num_hist  == max_hotplug_rate)
-                hotplug_history->num_hist = 0;
+        if (ali_hotplug_history->num_hist  == max_hotplug_rate)
+                ali_hotplug_history->num_hist = 0;
 
         /* Check for frequency increase */
         if (policy->cur < dbs_tuners_ins.freq_for_responsiveness) {
@@ -1201,7 +1197,7 @@ static void do_dbs_timer(struct work_struct *work)
         if (num_online_cpus() > 1)
                 delay -= jiffies % delay;
 
-        queue_delayed_work_on(cpu, dvfs_workqueue, &dbs_info->work, delay);
+        queue_delayed_work_on(cpu, ali_dvfs_workqueue, &dbs_info->work, delay);
         mutex_unlock(&dbs_info->timer_mutex);
 }
 
@@ -1217,7 +1213,7 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
         INIT_WORK(&dbs_info->up_work, cpu_up_work);
         INIT_WORK(&dbs_info->down_work, cpu_down_work);
 
-        queue_delayed_work_on(dbs_info->cpu, dvfs_workqueue,
+        queue_delayed_work_on(dbs_info->cpu, ali_dvfs_workqueue,
                               &dbs_info->work, delay + 2 * HZ);
 }
 
@@ -1268,14 +1264,14 @@ static struct notifier_block reboot_notifier = {
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
-unsigned int prev_freq_step;
-unsigned int prev_sampling_rate;
+unsigned int ali_prev_freq_step;
+unsigned int ali_prev_sampling_rate;
 static void cpufreq_alicornq_early_suspend(struct early_suspend *h)
 {
         dbs_tuners_ins.early_suspend =
                 atomic_read(&g_hotplug_lock);
-        prev_freq_step = dbs_tuners_ins.freq_step;
-        prev_sampling_rate = dbs_tuners_ins.sampling_rate;
+        ali_prev_freq_step = dbs_tuners_ins.freq_step;
+        ali_prev_sampling_rate = dbs_tuners_ins.sampling_rate;
         dbs_tuners_ins.freq_step = 20;
         dbs_tuners_ins.sampling_rate *= 4;
         atomic_set(&g_hotplug_lock, 1);
@@ -1286,8 +1282,8 @@ static void cpufreq_alicornq_late_resume(struct early_suspend *h)
 {
         atomic_set(&g_hotplug_lock, dbs_tuners_ins.early_suspend);
         dbs_tuners_ins.early_suspend = -1;
-        dbs_tuners_ins.freq_step = prev_freq_step;
-        dbs_tuners_ins.sampling_rate = prev_sampling_rate;
+        dbs_tuners_ins.freq_step = ali_prev_freq_step;
+        dbs_tuners_ins.sampling_rate = ali_prev_sampling_rate;
         apply_hotplug_lock();
         start_rq_work();
 }
@@ -1310,7 +1306,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
                 dbs_tuners_ins.max_freq = policy->max;
                 dbs_tuners_ins.min_freq = policy->min;
-                hotplug_history->num_hist = 0;
+                ali_hotplug_history->num_hist = 0;
                 start_rq_work();
 
                 mutex_lock(&dbs_mutex);
@@ -1407,15 +1403,15 @@ static int __init cpufreq_gov_dbs_init(void)
         if (ret)
                 return ret;
 
-        hotplug_history = kzalloc(sizeof(struct cpu_usage_history), GFP_KERNEL);
-        if (!hotplug_history) {
+        ali_hotplug_history = kzalloc(sizeof(struct cpu_usage_history), GFP_KERNEL);
+        if (!ali_hotplug_history) {
                 pr_err("%s cannot create hotplug history array\n", __func__);
                 ret = -ENOMEM;
                 goto err_hist;
         }
 
-        dvfs_workqueue = create_workqueue("kalicornq");
-        if (!dvfs_workqueue) {
+        ali_dvfs_workqueue = create_workqueue("kalicornq");
+        if (!ali_dvfs_workqueue) {
                 pr_err("%s cannot create workqueue\n", __func__);
                 ret = -ENOMEM;
                 goto err_queue;
@@ -1434,9 +1430,9 @@ static int __init cpufreq_gov_dbs_init(void)
         return ret;
 
 err_reg:
-        destroy_workqueue(dvfs_workqueue);
+        destroy_workqueue(ali_dvfs_workqueue);
 err_queue:
-        kfree(hotplug_history);
+        kfree(ali_hotplug_history);
 err_hist:
         kfree(rq_data);
         return ret;
@@ -1445,13 +1441,13 @@ err_hist:
 static void __exit cpufreq_gov_dbs_exit(void)
 {
         cpufreq_unregister_governor(&cpufreq_gov_alicornq);
-        destroy_workqueue(dvfs_workqueue);
-        kfree(hotplug_history);
+        destroy_workqueue(ali_dvfs_workqueue);
+        kfree(ali_hotplug_history);
         kfree(rq_data);
 }
 
-MODULE_AUTHOR("ByungChang Cha <bc.cha@samsung.com>");
-MODULE_DESCRIPTION("'cpufreq_pegasusq' - A dynamic cpufreq/cpuhotplug governor");
+MODULE_AUTHOR("zxo0oxz");
+MODULE_DESCRIPTION("'cpufreq_alicornq' - A dynamic cpufreq/cpuhotplug governor based on pegasusq");
 MODULE_LICENSE("GPL");
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_ALICORNQ
