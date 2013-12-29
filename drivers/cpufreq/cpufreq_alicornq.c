@@ -4,7 +4,7 @@
  *  Based on pegasusq governor
  *
  * Just a set of pegasusq tweaks by hakcenter
- * Forked to alicornq by blasphemy
+ * Forked to alicornq by extreme kernel v2
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
